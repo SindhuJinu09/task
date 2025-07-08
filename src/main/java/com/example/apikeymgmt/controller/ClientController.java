@@ -6,8 +6,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -49,33 +47,5 @@ public class ClientController {
     public ResponseEntity<?> getApiKeys(@PathVariable String clientId) {
         var apiKeys = clientService.getApiKeysForClient(clientId);
         return ResponseEntity.ok(apiKeys);
-    }
-}
-
-// Protected endpoint that requires API key authentication
-@RestController
-@RequestMapping("/protected")
-class ProtectedController {
-
-    @GetMapping("/data")
-    public ResponseEntity<?> getProtectedData() {
-        // This endpoint requires x-api-key header
-        // Authentication is handled by ApiKeyAuthFilter
-        return ResponseEntity.ok(Map.of(
-            "message", "This is protected data! 🔒",
-            "timestamp", LocalDateTime.now(),
-            "data", List.of("sensitive", "information", "here"),
-            "status", "success"
-        ));
-    }
-
-    @GetMapping("/user-info")
-    public ResponseEntity<?> getUserInfo() {
-        return ResponseEntity.ok(Map.of(
-            "user", "authenticated_user",
-            "permissions", List.of("read", "write"),
-            "last_login", LocalDateTime.now(),
-            "message", "Welcome to the protected area! 🛡️"
-        ));
     }
 }
