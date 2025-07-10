@@ -1,7 +1,7 @@
-package com.example.apikeymgmt.service;
+package com.algobrewery.apikeymgmt.service;
 
-import com.example.apikeymgmt.entity.ApiKey;
-import com.example.apikeymgmt.repository.ApiKeyRepository;
+import com.algobrewery.apikeymgmt.entity.ApiKey;
+import com.algobrewery.apikeymgmt.repository.ApiKeyRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

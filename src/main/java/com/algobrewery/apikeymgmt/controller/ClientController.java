@@ -1,7 +1,7 @@
-package com.example.apikeymgmt.controller;
+package com.algobrewery.apikeymgmt.controller;
 
-import com.example.apikeymgmt.entity.Client;
-import com.example.apikeymgmt.service.ClientService;
+import com.algobrewery.apikeymgmt.entity.Client;
+import com.algobrewery.apikeymgmt.service.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

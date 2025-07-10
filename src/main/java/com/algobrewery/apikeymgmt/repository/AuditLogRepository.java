@@ -1,6 +1,6 @@
-package com.example.apikeymgmt.repository;
+package com.algobrewery.apikeymgmt.repository;
 
-import com.example.apikeymgmt.entity.AuditLog;
+import com.algobrewery.apikeymgmt.entity.AuditLog;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.UUID;

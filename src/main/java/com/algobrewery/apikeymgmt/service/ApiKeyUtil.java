@@ -1,4 +1,4 @@
-package com.example.apikeymgmt.service;
+package com.algobrewery.apikeymgmt.service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

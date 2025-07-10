@@ -1,6 +1,6 @@
-package com.example.apikeymgmt.security;
+package com.algobrewery.apikeymgmt.security;
 
-import com.example.apikeymgmt.service.ApiKeyAuthService;
+import com.algobrewery.apikeymgmt.service.ApiKeyAuthService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

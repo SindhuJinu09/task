@@ -1,4 +1,4 @@
-package com.example.apikeymgmt.security;
+package com.algobrewery.apikeymgmt.security;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;

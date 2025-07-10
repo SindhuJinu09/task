@@ -1,6 +1,6 @@
-package com.example.apikeymgmt.repository;
+package com.algobrewery.apikeymgmt.repository;
 
-import com.example.apikeymgmt.entity.ApiKey;
+import com.algobrewery.apikeymgmt.entity.ApiKey;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

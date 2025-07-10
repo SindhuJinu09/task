@@ -1,4 +1,4 @@
-package com.example.apikeymgmt.entity;
+package com.algobrewery.apikeymgmt.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
