@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 import java.util.Map;
 import java.util.UUID;
@@ -102,6 +104,18 @@ public class ClientController {
             response.setCreatedAt(c.getCreatedAt());
             response.setUpdatedAt(c.getUpdatedAt());
             response.setCreatedBy(c.getCreatedBy());
+
+            // Handle metadata conversion from String to Map
+            if (c.getMetadata() != null && !c.getMetadata().isEmpty()) {
+                try {
+                    // Parse JSON string to Map (you might want to use Jackson ObjectMapper for this)
+                    response.setMetadata(parseMetadataString(c.getMetadata()));
+                } catch (Exception e) {
+                    // If parsing fails, create a simple map with the raw string
+                    response.setMetadata(Map.of("raw", c.getMetadata()));
+                }
+            }
+
             return ResponseEntity.ok(response);
         }
         return ResponseEntity.notFound().build();
@@ -126,6 +140,16 @@ public class ClientController {
             response.setCreatedAt(updated.getCreatedAt());
             response.setUpdatedAt(updated.getUpdatedAt());
             response.setCreatedBy(updated.getCreatedBy());
+
+            // Handle metadata conversion from String to Map
+            if (updated.getMetadata() != null && !updated.getMetadata().isEmpty()) {
+                try {
+                    response.setMetadata(parseMetadataString(updated.getMetadata()));
+                } catch (Exception e) {
+                    response.setMetadata(Map.of("raw", updated.getMetadata()));
+                }
+            }
+
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
@@ -158,5 +182,16 @@ public class ClientController {
             @RequestHeader("x-request-id") String requestId) {
         var clients = clientService.getAllClients();
         return ResponseEntity.ok(clients);
+    }
+
+    // Helper method to parse metadata string to Map
+    private Map<String, Object> parseMetadataString(String metadataString) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            return objectMapper.readValue(metadataString, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            // If it's not valid JSON, return it as a simple key-value pair
+            return Map.of("value", metadataString);
+        }
     }
 }
