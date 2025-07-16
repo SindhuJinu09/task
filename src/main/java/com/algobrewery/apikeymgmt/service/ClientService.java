@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,7 +35,10 @@ public class ClientService {
         client.setStatus("active");
         client.setCreatedBy(createdBy);
         clientRepository.save(client);
-        logAudit("Client", client.getClientId(), "CREATE", createdBy, null, null, null);
+        // Use CompletableFuture for async audit logging
+        CompletableFuture.runAsync(() ->
+            logAudit("Client", client.getClientId(), "CREATE", createdBy, null, null, null)
+        );
         return client;
     }
 
@@ -48,11 +52,21 @@ public class ClientService {
             ApiKey key = keyOpt.get();
             key.setStatus("revoked");
             apiKeyRepository.save(key);
-            logAudit("ApiKey", apiKeyId.toString(), "REVOKE", revokedBy, null, null, null);
+            // Use CompletableFuture for async audit logging
+            CompletableFuture.runAsync(() ->
+                logAudit("ApiKey", apiKeyId.toString(), "REVOKE", revokedBy, null, null, null)
+            );
+        } else {
+            // R54: We should throw exception if key is not found
+            throw new RuntimeException("API Key not found: " + apiKeyId);
         }
     }
 
     public List<Map<String, Object>> getApiKeysForClient(String clientId) {
+        // R63: We get multiple API keys for a client because:
+        // 1. Keys can be rotated (old keys become revoked, new ones created)
+        // 2. Multiple active keys may be needed for different environments/purposes
+        // 3. Historical tracking of all keys (active, revoked, expired) for audit purposes
         List<ApiKey> apiKeys = apiKeyRepository.findByClientId(clientId);
         return apiKeys.stream()
                 .<Map<String, Object>>map(key -> Map.of(
@@ -90,7 +104,10 @@ public class ClientService {
 
             clientRepository.save(client);
             String newValues = String.format("name:%s,status:%s", client.getClientName(), client.getStatus());
-            logAudit("Client", clientId, "UPDATE", updatedBy, oldValues + " -> " + newValues, "Client update", request);
+            // Use CompletableFuture for async audit logging
+            CompletableFuture.runAsync(() ->
+                logAudit("Client", clientId, "UPDATE", updatedBy, oldValues + " -> " + newValues, "Client update", request)
+            );
             return client;
         }
         throw new RuntimeException("Client not found: " + clientId);
@@ -104,13 +121,19 @@ public class ClientService {
             if ("active".equals(key.getStatus())) {
                 key.setStatus("revoked");
                 apiKeyRepository.save(key);
-                logAudit("ApiKey", key.getApiKeyId().toString(), "REVOKE", performedBy, null, "Key rotation", request);
+                // Use CompletableFuture for async audit logging
+                CompletableFuture.runAsync(() ->
+                    logAudit("ApiKey", key.getApiKeyId().toString(), "REVOKE", performedBy, null, "Key rotation", request)
+                );
             }
         }
 
         // Generate new key
         String newApiKey = generateApiKeyForClient(clientId, performedBy, request);
-        logAudit("Client", clientId, "KEY_ROTATION", performedBy, null, "API key rotated", request);
+        // Use CompletableFuture for async audit logging
+        CompletableFuture.runAsync(() ->
+            logAudit("Client", clientId, "KEY_ROTATION", performedBy, null, "API key rotated", request)
+        );
         return newApiKey;
     }
 
@@ -118,14 +141,22 @@ public class ClientService {
     public String generateApiKeyForClient(String clientId, String createdBy, HttpServletRequest request) {
         String apiKey = ApiKeyUtil.generateApiKey();
         String hash = ApiKeyUtil.hashApiKey(apiKey);
-        ApiKey key = new ApiKey();
-        key.setClientId(clientId);
-        key.setApiKeyHash(hash);
-        key.setStatus("active");
-        key.setCreatedAt(LocalDateTime.now());
-        key.setCreatedBy(createdBy);
+
+        // Use builder pattern for ApiKey creation
+        ApiKey key = ApiKey.builder()
+                .clientId(clientId)
+                .apiKeyHash(hash)
+                .status("active")
+                .createdAt(LocalDateTime.now())
+                .createdBy(createdBy)
+                .build();
+
         apiKeyRepository.save(key);
-        logAudit("ApiKey", key.getApiKeyId().toString(), "CREATE", createdBy, null, null, request);
+
+        // Use CompletableFuture for async audit logging
+        CompletableFuture.runAsync(() ->
+            logAudit("ApiKey", key.getApiKeyId().toString(), "CREATE", createdBy, null, null, request)
+        );
         return apiKey;
     }
 
@@ -135,21 +166,23 @@ public class ClientService {
     }
 
     private void logAudit(String entityType, String entityId, String action, String performedBy, String changes, String reason, HttpServletRequest request) {
-        AuditLog log = new AuditLog();
-        log.setEntityType(entityType);
-        log.setEntityId(entityId);
-        log.setAction(action);
-        log.setPerformedBy(performedBy);
-        log.setPerformedAt(LocalDateTime.now());
-        log.setChanges(changes);
-        log.setReason(reason);
+        // R77: Use builder method for AuditLog
+        AuditLog.AuditLogBuilder logBuilder = AuditLog.builder()
+                .entityType(entityType)
+                .entityId(entityId)
+                .action(action)
+                .performedBy(performedBy)
+                .performedAt(LocalDateTime.now())
+                .changes(changes)
+                .reason(reason);
 
         // Extract IP address and user agent from request
         if (request != null) {
-            log.setIpAddress(getClientIpAddress(request));
-            log.setUserAgent(request.getHeader("User-Agent"));
+            logBuilder.ipAddress(getClientIpAddress(request))
+                     .userAgent(request.getHeader("User-Agent"));
         }
 
+        AuditLog log = logBuilder.build();
         auditLogRepository.save(log);
     }
 

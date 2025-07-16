@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/clients")
+@RequestMapping("/client")
 public class ClientController {
     @Autowired
     private ClientService clientService;
@@ -50,7 +50,7 @@ public class ClientController {
         ));
     }
 
-    @PostMapping("/{clientId}/api-keys")
+    @PostMapping("/{clientId}/api-key")
     public ResponseEntity<?> generateApiKey(
             @RequestHeader("x-user-id") String userId,
             @RequestHeader("x-company-id") String companyId,
@@ -64,7 +64,7 @@ public class ClientController {
         ));
     }
 
-    @PostMapping("/api-keys/{apiKeyId}/revoke")
+    @PostMapping("/api-key/{apiKeyId}/revoke")
     public ResponseEntity<?> revokeApiKey(
             @RequestHeader("x-user-id") String userId,
             @RequestHeader("x-company-id") String companyId,
@@ -74,7 +74,7 @@ public class ClientController {
         return ResponseEntity.ok(Map.of("revoked", true));
     }
 
-    @GetMapping("/{clientId}/api-keys")
+    @GetMapping("/{clientId}/api-key")
     public ResponseEntity<?> getApiKeys(
             @RequestHeader("x-user-id") String userId,
             @RequestHeader("x-company-id") String companyId,
@@ -175,7 +175,7 @@ public class ClientController {
         }
     }
 
-    @GetMapping
+    @GetMapping("/clients")
     public ResponseEntity<?> getAllClients(
             @RequestHeader("x-user-id") String userId,
             @RequestHeader("x-company-id") String companyId,
