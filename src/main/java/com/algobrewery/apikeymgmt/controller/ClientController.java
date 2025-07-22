@@ -175,14 +175,14 @@ public class ClientController {
         }
     }
 
-    @GetMapping("/clients")
-    public ResponseEntity<?> getAllClients(
-            @RequestHeader("x-user-id") String userId,
-            @RequestHeader("x-company-id") String companyId,
-            @RequestHeader("x-request-id") String requestId) {
-        var clients = clientService.getAllClients();
-        return ResponseEntity.ok(clients);
-    }
+    // Removed: @GetMapping("/clients")
+    // public ResponseEntity<?> getAllClients(
+    //         @RequestHeader("x-user-id") String userId,
+    //         @RequestHeader("x-company-id") String companyId,
+    //         @RequestHeader("x-request-id") String requestId) {
+    //     var clients = clientService.getAllClients();
+    //     return ResponseEntity.ok(clients);
+    // }
 
     // Helper method to parse metadata string to Map
     private Map<String, Object> parseMetadataString(String metadataString) {
