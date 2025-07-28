@@ -25,7 +25,7 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
-        if (request.getRequestURI().startsWith("/clients")) {
+        if (request.getRequestURI().startsWith("/client")) {
             // Allow client registration endpoints without API key
             filterChain.doFilter(request, response);
             return;
