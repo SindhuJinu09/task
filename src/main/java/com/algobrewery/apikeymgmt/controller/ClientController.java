@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 
 import java.util.Map;
 import java.util.UUID;
@@ -18,21 +21,27 @@ import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/client")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class ClientController {
     @Autowired
     private ClientService clientService;
 
     @PostMapping
     public ResponseEntity<?> registerClient(
-            @RequestHeader("x-user-id") String userId,
-            @RequestHeader("x-company-id") String companyId,
-            @RequestHeader("x-request-id") String requestId,
-            @RequestBody ClientRegistrationRequest request,
+            @RequestHeader("x-user-id") @NotBlank String userId,
+            @RequestHeader("x-company-id") @NotBlank String companyId,
+            @RequestHeader("x-request-id") @NotBlank String requestId,
+            @RequestBody @Valid ClientRegistrationRequest request,
             HttpServletRequest httpRequest) {
         try {
+            // Validate and sanitize inputs
+            if (!isValidUUID(companyId)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid company ID format"));
+            }
+            
             Client client = new Client();
-            client.setClientName(request.getClientName());
-            client.setClientType(request.getClientType());
+            client.setClientName(sanitizeInput(request.getClientName()));
+            client.setClientType(sanitizeInput(request.getClientType()));
             client.setOrganizationUuid(companyId);
             if (request.getMetadata() != null) {
                 client.setMetadata(request.getMetadata().toString());
@@ -47,7 +56,7 @@ public class ClientController {
                     "created_at", saved.getCreatedAt()
             ));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
         }
     }
 
@@ -201,6 +210,24 @@ public class ClientController {
         } catch (Exception e) {
             // If it's not valid JSON, return it as a simple key-value pair
             return Map.of("value", metadataString);
+        }
+    }
+
+    // Helper method to sanitize input
+    private String sanitizeInput(String input) {
+        if (input == null) {
+            return null;
+        }
+        return input.trim();
+    }
+
+    // Helper method to validate UUID
+    private boolean isValidUUID(String uuid) {
+        try {
+            UUID.fromString(uuid);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
         }
     }
 }
