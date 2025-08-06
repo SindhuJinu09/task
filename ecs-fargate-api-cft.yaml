@@ -241,6 +241,7 @@ Resources:
       IntegrationUri: !Sub 'http://${AppALB.DNSName}'
       IntegrationMethod: ANY
       TimeoutInMillis: 30000
+      PayloadFormatVersion: '1.0'
 
 
   ApiGatewayDefaultRouteNew:

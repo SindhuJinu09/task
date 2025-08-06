@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 @Component
 public class ApiKeyAuthFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(ApiKeyAuthFilter.class);
-    private static final Pattern API_KEY_PATTERN = Pattern.compile("^[a-zA-Z0-9]{32,}$");
+    private static final Pattern API_KEY_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{32,}$");
     
     @Autowired
     private ApiKeyAuthService apiKeyAuthService;
@@ -71,7 +71,18 @@ public class ApiKeyAuthFilter extends OncePerRequestFilter {
     }
     
     private boolean isPublicEndpoint(String requestURI) {
-        return requestURI.equals("/") || requestURI.startsWith("/client");
+        // Allow root endpoint and health checks
+        if (requestURI.equals("/") || requestURI.equals("/health")) {
+            return true;
+        }
+        
+        // Allow client registration (POST /client) but require auth for other client operations
+        if (requestURI.equals("/client") || requestURI.equals("/client/")) {
+            return true;
+        }
+        
+        // All other endpoints require API key authentication
+        return false;
     }
     
     private boolean isValidApiKeyFormat(String apiKey) {

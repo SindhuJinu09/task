@@ -5,6 +5,7 @@ import com.algobrewery.apikeymgmt.service.ClientService;
 import com.algobrewery.apikeymgmt.dto.ClientRegistrationRequest;
 import com.algobrewery.apikeymgmt.dto.ClientUpdateRequest;
 import com.algobrewery.apikeymgmt.dto.ClientResponse;
+import com.algobrewery.apikeymgmt.config.ApiKeyConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +16,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -25,6 +27,9 @@ import java.util.concurrent.CompletableFuture;
 public class ClientController {
     @Autowired
     private ClientService clientService;
+    
+    @Autowired
+    private ApiKeyConfig apiKeyConfig;
 
     @PostMapping
     public ResponseEntity<?> registerClient(
@@ -33,30 +38,40 @@ public class ClientController {
             @RequestHeader("x-request-id") @NotBlank String requestId,
             @RequestBody @Valid ClientRegistrationRequest request,
             HttpServletRequest httpRequest) {
+        
+        // Validate and sanitize inputs
+        if (!isValidUUID(companyId)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid company ID format"));
+        }
+        
+        Client client = new Client();
+        client.setClientName(sanitizeInput(request.getClientName()));
+        client.setClientType(sanitizeInput(request.getClientType()));
+        client.setOrganizationUuid(companyId);
+        if (request.getMetadata() != null) {
+            client.setMetadata(request.getMetadata().toString());
+        }
+        
         try {
-            // Validate and sanitize inputs
-            if (!isValidUUID(companyId)) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Invalid company ID format"));
-            }
-            
-            Client client = new Client();
-            client.setClientName(sanitizeInput(request.getClientName()));
-            client.setClientType(sanitizeInput(request.getClientType()));
-            client.setOrganizationUuid(companyId);
-            if (request.getMetadata() != null) {
-                client.setMetadata(request.getMetadata().toString());
-            }
             Client saved = clientService.registerClient(client, userId).get();
             String apiKey = clientService.generateApiKeyForClient(saved.getClientId(), userId, httpRequest).get();
+            
+            // Calculate expiry time based on configuration
+            LocalDateTime expiresAt = LocalDateTime.now().plus(apiKeyConfig.getExpiryDuration());
+            
             return ResponseEntity.ok(Map.of(
                     "client_id", saved.getClientId(),
                     "api_key", apiKey,
                     "client_name", saved.getClientName(),
                     "status", saved.getStatus(),
-                    "created_at", saved.getCreatedAt()
+                    "created_at", saved.getCreatedAt(),
+                    "expires_at", expiresAt.toString(),
+                    "message", "Client registered successfully. API key expires in " + 
+                        apiKeyConfig.getExpiryDuration().toDays() + " days."
             ));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
+            // Let the global exception handler deal with it
+            throw new RuntimeException("Error registering client", e);
         }
     }
 
@@ -69,9 +84,17 @@ public class ClientController {
             HttpServletRequest httpRequest) {
         try {
             String apiKey = clientService.generateApiKeyForClient(clientId, userId, httpRequest).get();
+            
+            // Calculate expiry time based on configuration
+            LocalDateTime expiresAt = LocalDateTime.now().plus(apiKeyConfig.getExpiryDuration());
+            
             return ResponseEntity.ok(Map.of(
                     "client_id", clientId,
-                    "api_key", apiKey
+                    "api_key", apiKey,
+                    "expires_at", expiresAt.toString(),
+                    "message", "API key generated successfully. " + 
+                        (apiKeyConfig.isAllowMultipleActiveKeys() ? "Multiple active keys allowed." : "Previous keys have been revoked.") +
+                        " New key expires in " + apiKeyConfig.getExpiryDuration().toDays() + " days."
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));

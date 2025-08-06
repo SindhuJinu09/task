@@ -9,6 +9,7 @@ import com.algobrewery.apikeymgmt.repository.AuditLogRepository;
 import com.algobrewery.apikeymgmt.dto.ClientUpdateRequest;
 import com.algobrewery.apikeymgmt.service.ApiKeyUtil;
 import com.algobrewery.apikeymgmt.service.ClientService;
+import com.algobrewery.apikeymgmt.config.ApiKeyConfig;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -31,18 +32,41 @@ public class ClientServiceImpl implements ClientService {
     private ApiKeyRepository apiKeyRepository;
     @Autowired
     private AuditLogRepository auditLogRepository;
+    @Autowired
+    private ApiKeyConfig apiKeyConfig;
 
     private final ExecutorService executor = Executors.newCachedThreadPool();
 
     @Override
     public CompletableFuture<Client> registerClient(Client client, String createdBy) {
         return CompletableFuture.supplyAsync(() -> {
+            // Check for existing client with same name and organization
+            Optional<Client> existingClient = clientRepository.findByClientNameAndOrganizationUuid(
+                client.getClientName(), client.getOrganizationUuid());
+            
+            if (existingClient.isPresent()) {
+                throw new RuntimeException("Client with name '" + client.getClientName() + 
+                    "' already exists in organization '" + client.getOrganizationUuid() + "'");
+            }
+            
             client.setClientId(UUID.randomUUID().toString());
             client.setCreatedAt(LocalDateTime.now());
             client.setUpdatedAt(LocalDateTime.now());
             client.setStatus("active");
             client.setCreatedBy(createdBy);
-            clientRepository.save(client);
+            
+            try {
+                clientRepository.save(client);
+            } catch (Exception e) {
+                // If it's a constraint violation, let it bubble up
+                if (e.getCause() instanceof org.hibernate.exception.ConstraintViolationException ||
+                    e instanceof org.springframework.dao.DataIntegrityViolationException) {
+                    throw e;
+                }
+                // For other exceptions, wrap in RuntimeException
+                throw new RuntimeException("Error saving client", e);
+            }
+            
             CompletableFuture.runAsync(() ->
                 logAudit("Client", client.getClientId(), "CREATE", createdBy, null, null, null)
             , executor);
@@ -82,6 +106,8 @@ public class ClientServiceImpl implements ClientService {
                             "client_id", key.getClientId(),
                             "status", key.getStatus(),
                             "created_at", key.getCreatedAt().toString(),
+                            "expires_at", key.getExpiresAt() != null ? key.getExpiresAt().toString() : "No expiry",
+                            "last_used_at", key.getLastUsedAt() != null ? key.getLastUsedAt().toString() : "Never used",
                             "created_by", key.getCreatedBy() != null ? key.getCreatedBy() : ""
                     ))
                     .collect(Collectors.toList());
@@ -147,14 +173,31 @@ public class ClientServiceImpl implements ClientService {
     @Override
     public CompletableFuture<String> generateApiKeyForClient(String clientId, String createdBy, HttpServletRequest request) {
         return CompletableFuture.supplyAsync(() -> {
+            // Check if multiple active keys are allowed
+            if (!apiKeyConfig.isAllowMultipleActiveKeys()) {
+                // Revoke existing active keys for this client to ensure only one active key
+                List<ApiKey> existingActiveKeys = apiKeyRepository.findByClientIdAndStatus(clientId, "active");
+                for (ApiKey existingKey : existingActiveKeys) {
+                    existingKey.setStatus("revoked");
+                    apiKeyRepository.save(existingKey);
+                    CompletableFuture.runAsync(() ->
+                        logAudit("ApiKey", existingKey.getApiKeyId().toString(), "REVOKE", createdBy, null, "Auto-revoke for new key", request)
+                    , executor);
+                }
+            }
+            
             String apiKey = ApiKeyUtil.generateApiKey();
             String hash = ApiKeyUtil.hashApiKey(apiKey);
+
+            // Set expiry time based on configuration
+            LocalDateTime expiresAt = LocalDateTime.now().plus(apiKeyConfig.getExpiryDuration());
 
             ApiKey key = ApiKey.builder()
                     .clientId(clientId)
                     .apiKeyHash(hash)
                     .status("active")
                     .createdAt(LocalDateTime.now())
+                    .expiresAt(expiresAt)
                     .createdBy(createdBy)
                     .build();
 

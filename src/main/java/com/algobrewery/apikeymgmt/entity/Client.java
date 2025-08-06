@@ -9,6 +9,9 @@ import java.util.UUID;
 @Entity
 @Data
 @NoArgsConstructor
+@Table(uniqueConstraints = {
+    @UniqueConstraint(columnNames = {"clientName", "organizationUuid"})
+})
 public class Client {
     @Id
     private String clientId;
