@@ -23,6 +23,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable()) // Disable CSRF for API endpoints
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(new AntPathRequestMatcher("/client/**")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/api/validate")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/api/health")).permitAll()
                         .requestMatchers(new AntPathRequestMatcher("/")).permitAll()
                         .anyRequest().authenticated()
                 )
